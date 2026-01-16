@@ -15,9 +15,11 @@ RSpec.describe CalculateBurnRateJob, type: :job do
     # 30 sales of 10 units = 10 units/day burn rate
     create_list(:sales_log, 30, product: product, quantity: 10, sold_at: 1.day.ago)
     
-    expect(ActionCable.server).to receive(:broadcast).with(
-      "product_#{product.id}_runway",
-      hash_including(runway: "10.0 Days")
+    expect(Turbo::StreamsChannel).to receive(:broadcast_update_to).with(
+      "dashboard",
+      target: "dashboard-content",
+      partial: "dashboard/content",
+      locals: hash_including(products: kind_of(ActiveRecord::Relation))
     )
 
     CalculateBurnRateJob.perform_now(product.id)
