@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <%= action_cable_meta_tag %>
     <%= yield :head %>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +14,17 @@
 
     <link rel="icon" href="/icon.png" type="image/png">
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
-    <%= javascript_importmap_tags %>
+    <script type="module">
+      import { Turbo } from "https://esm.sh/@hotwired/turbo-rails@8.0.0"
+      
+      document.addEventListener("turbo:load", () => {
+        console.log("🚀 Turbo Loaded")
+      })
+      
+      document.addEventListener("turbo:before-stream-render", (event) => {
+        console.log("⚡️ Stream Received:", event.detail.newStream)
+      })
+    </script>
 
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }

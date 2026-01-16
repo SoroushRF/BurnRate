@@ -6,7 +6,7 @@ class CalculateBurnRateJob < ApplicationJob
     
     # Trigger dashboard refresh via Turbo Streams
     # This broadcasts the updated content to all connected clients
-    Turbo::StreamsChannel.broadcast_replace_to(
+    Turbo::StreamsChannel.broadcast_update_to(
       "dashboard",
       target: "dashboard-content",
       partial: "dashboard/content",

@@ -11,6 +11,7 @@ gem "tailwindcss-rails"
 gem "jbuilder"
 
 gem "graphql"
+gem "redis"
 gem "sidekiq"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem

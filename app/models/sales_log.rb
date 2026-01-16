@@ -4,12 +4,21 @@ class SalesLog < ApplicationRecord
   validates :quantity, presence: true, numericality: { greater_than: 0 }
   validates :sold_at, presence: true
 
-  # After a sale is logged, trigger the background job to recalculate and broadcast
-  after_create_commit :recalculate_product_burn_rate
+  # After a sale is logged, trigger updates
+  after_create_commit :trigger_dashboard_update
 
   private
 
-  def recalculate_product_burn_rate
+    def trigger_dashboard_update
+    # Broadcast UPDATE instead of REPLACE so we keep the container ID
+    Turbo::StreamsChannel.broadcast_update_to(
+      "dashboard",
+      target: "dashboard-content",
+      partial: "dashboard/content",
+      locals: { products: Product.all }
+    )
+    
+    # Also queue the job for any additional processing
     CalculateBurnRateJob.perform_later(product_id)
   end
 end
