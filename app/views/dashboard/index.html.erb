@@ -1,0 +1,68 @@
+<div class="space-y-8">
+  <header>
+    <h1 class="text-3xl font-bold tracking-tight">Inventory Runway</h1>
+    <p class="text-slate-400 mt-2">Real-time stockout predictions powered by the BurnRate Oracle.</p>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <% @products.each do |product| %>
+      <% 
+        runway = BurnRateService.new(product).days_of_runway
+        
+        card_styles = case runway
+        when 0..7
+          { color: "rose", label: "Critical", border: "hover:border-rose-500/50", glow: "bg-rose-500/10 group-hover:bg-rose-500/20", badge: "bg-rose-500/10 text-rose-400 border-rose-500/20", text: "text-rose-400", bar: "bg-rose-500" }
+        when 7..14
+          { color: "amber", label: "Warning", border: "hover:border-amber-500/50", glow: "bg-amber-500/10 group-hover:bg-amber-500/20", badge: "bg-amber-500/10 text-amber-400 border-amber-500/20", text: "text-amber-400", bar: "bg-amber-500" }
+        when 14..Float::INFINITY
+          { color: "emerald", label: "Healthy", border: "hover:border-emerald-500/50", glow: "bg-emerald-500/10 group-hover:bg-emerald-500/20", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", text: "text-emerald-400", bar: "bg-emerald-500" }
+        else
+          { color: "slate", label: "Stable", border: "hover:border-slate-500/50", glow: "bg-slate-500/10 group-hover:bg-slate-500/20", badge: "bg-slate-500/10 text-slate-400 border-slate-500/20", text: "text-slate-400", bar: "bg-slate-500" }
+        end
+      %>
+
+      <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 <%= card_styles[:border] %> transition-all group relative overflow-hidden">
+        <!-- Glow Effect -->
+        <div class="absolute -right-10 -top-10 w-32 h-32 blur-3xl transition-colors <%= card_styles[:glow] %>"></div>
+        
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="font-bold text-lg text-slate-100"><%= product.name %></h3>
+            <p class="text-xs font-mono text-slate-500 uppercase"><%= product.sku %></p>
+          </div>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border <%= card_styles[:badge] %>">
+            <%= card_styles[:label] %>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-6">
+          <div class="space-y-1">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">In Stock</p>
+            <p class="text-2xl font-semibold text-slate-200"><%= product.current_stock %></p>
+          </div>
+          <div class="space-y-1">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Daily Burn</p>
+            <p class="text-2xl font-semibold text-slate-200">
+              <%= number_with_precision(BurnRateService.new(product).daily_burn_rate, precision: 1) %>
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-slate-700/50">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-400 font-medium">Out-of-Stock Runway</span>
+            <span class="text-lg font-bold <%= card_styles[:text] %>">
+              <%= BurnRateService.new(product).formatted_runway %>
+            </span>
+          </div>
+          
+          <!-- Progress Bar Mock -->
+          <div class="w-full bg-slate-700/30 h-1.5 rounded-full mt-3 overflow-hidden">
+            <% progress = runway == Float::INFINITY ? 100 : [runway * 3.3, 100].min %>
+            <div class="h-full transition-all duration-1000 <%= card_styles[:bar] %>" style="width: <%= progress %>%"></div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
