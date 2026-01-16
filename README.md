@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://img.icons8.com/isometric/512/fire-element.png" width="128" height="128" alt="BurnRate Logo" />
+
 # 🔥 BurnRate
 
 ### **Real-Time Inventory Runway Intelligence**
