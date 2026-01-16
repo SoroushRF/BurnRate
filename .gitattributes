@@ -7,3 +7,14 @@ db/schema.rb linguist-generated
 vendor/* linguist-vendored
 config/credentials/*.yml.enc diff=rails_credentials
 config/credentials.yml.enc diff=rails_credentials
+
+# Force ERB templates to count as Ruby statistics
+*.html.erb linguist-language=Ruby
+
+# Exclude compiled assets and public files from language stats
+public/* linguist-vendored
+app/assets/builds/* linguist-vendored
+app/assets/config/* linguist-vendored
+
+# Optional: If you want to reduce CSS count further
+# app/assets/stylesheets/* linguist-vendored
