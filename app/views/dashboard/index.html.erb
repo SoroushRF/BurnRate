@@ -1,68 +1,329 @@
-<div class="space-y-8">
-  <header>
-    <h1 class="text-3xl font-bold tracking-tight">Inventory Runway</h1>
-    <p class="text-slate-400 mt-2">Real-time stockout predictions powered by the BurnRate Oracle.</p>
-  </header>
+<%
+  # Pre-calculate all data
+  products_data = @products.map do |product|
+    service = BurnRateService.new(product)
+    {
+      product: product,
+      runway: service.days_of_runway,
+      burn_rate: service.daily_burn_rate,
+      formatted_runway: service.formatted_runway
+    }
+  end
+  
+  critical = products_data.select { |p| p[:runway] <= 7 }
+  warning = products_data.select { |p| p[:runway] > 7 && p[:runway] <= 14 }
+  healthy = products_data.select { |p| p[:runway] > 14 }
+  sorted_products = products_data.sort_by { |p| p[:runway] == Float::INFINITY ? 999999 : p[:runway] }
+%>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    <% @products.each do |product| %>
-      <% 
-        runway = BurnRateService.new(product).days_of_runway
-        
-        card_styles = case runway
-        when 0..7
-          { color: "rose", label: "Critical", border: "hover:border-rose-500/50", glow: "bg-rose-500/10 group-hover:bg-rose-500/20", badge: "bg-rose-500/10 text-rose-400 border-rose-500/20", text: "text-rose-400", bar: "bg-rose-500" }
-        when 7..14
-          { color: "amber", label: "Warning", border: "hover:border-amber-500/50", glow: "bg-amber-500/10 group-hover:bg-amber-500/20", badge: "bg-amber-500/10 text-amber-400 border-amber-500/20", text: "text-amber-400", bar: "bg-amber-500" }
-        when 14..Float::INFINITY
-          { color: "emerald", label: "Healthy", border: "hover:border-emerald-500/50", glow: "bg-emerald-500/10 group-hover:bg-emerald-500/20", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", text: "text-emerald-400", bar: "bg-emerald-500" }
-        else
-          { color: "slate", label: "Stable", border: "hover:border-slate-500/50", glow: "bg-slate-500/10 group-hover:bg-slate-500/20", badge: "bg-slate-500/10 text-slate-400 border-slate-500/20", text: "text-slate-400", bar: "bg-slate-500" }
-        end
-      %>
+<style>
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+    margin-bottom: 8px;
+  }
+  
+  .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+  }
+  
+  .stat-value.critical { color: #f87171; }
+  .stat-value.warning { color: #fbbf24; }
+  .stat-value.healthy { color: #4ade80; }
+  
+  .alert-banner {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .alert-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .alert-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #f87171;
+  }
+  
+  .alert-desc {
+    font-size: 12px;
+    color: rgba(248, 113, 113, 0.7);
+    margin-top: 4px;
+  }
+  
+  .table-container {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  .table-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #27272a;
+  }
+  
+  .table-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+  
+  .table-subtitle {
+    font-size: 12px;
+    color: #71717a;
+    margin-top: 2px;
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .data-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+    padding: 12px 24px;
+    border-bottom: 1px solid #27272a;
+    background: #1c1c1f;
+  }
+  
+  .data-table th.align-right { text-align: right; }
+  
+  .data-table td {
+    padding: 16px 24px;
+    border-bottom: 1px solid #27272a;
+    vertical-align: middle;
+  }
+  
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover { background: rgba(39, 39, 42, 0.5); }
+  
+  .product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .product-avatar {
+    width: 36px;
+    height: 36px;
+    background: #27272a;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a1a1aa;
+  }
+  
+  .product-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+  }
+  
+  .product-sku {
+    font-size: 12px;
+    color: #71717a;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  .status-badge {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .status-badge.critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+  
+  .status-badge.warning {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+  }
+  
+  .status-badge.healthy {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+  }
+  
+  .cell-value {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #e4e4e7;
+    text-align: right;
+  }
+  
+  .cell-runway {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+  }
+  
+  .cell-runway.critical { color: #f87171; }
+  .cell-runway.warning { color: #fbbf24; }
+  .cell-runway.healthy { color: #4ade80; }
+  
+  .progress-bar {
+    width: 120px;
+    height: 6px;
+    background: #27272a;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  
+  .progress-fill.critical { background: #f87171; }
+  .progress-fill.warning { background: #fbbf24; }
+  .progress-fill.healthy { background: #4ade80; }
+</style>
 
-      <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 <%= card_styles[:border] %> transition-all group relative overflow-hidden">
-        <!-- Glow Effect -->
-        <div class="absolute -right-10 -top-10 w-32 h-32 blur-3xl transition-colors <%= card_styles[:glow] %>"></div>
-        
-        <div class="flex justify-between items-start mb-4">
-          <div>
-            <h3 class="font-bold text-lg text-slate-100"><%= product.name %></h3>
-            <p class="text-xs font-mono text-slate-500 uppercase"><%= product.sku %></p>
-          </div>
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border <%= card_styles[:badge] %>">
-            <%= card_styles[:label] %>
-          </span>
-        </div>
+<div>
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Products</div>
+      <div class="stat-value"><%= products_data.size %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color: #f87171;">Critical</div>
+      <div class="stat-value critical"><%= critical.size %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color: #fbbf24;">Warning</div>
+      <div class="stat-value warning"><%= warning.size %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color: #4ade80;">Healthy</div>
+      <div class="stat-value healthy"><%= healthy.size %></div>
+    </div>
+  </div>
 
-        <div class="grid grid-cols-2 gap-4 mt-6">
-          <div class="space-y-1">
-            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">In Stock</p>
-            <p class="text-2xl font-semibold text-slate-200"><%= product.current_stock %></p>
-          </div>
-          <div class="space-y-1">
-            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Daily Burn</p>
-            <p class="text-2xl font-semibold text-slate-200">
-              <%= number_with_precision(BurnRateService.new(product).daily_burn_rate, precision: 1) %>
-            </p>
-          </div>
-        </div>
-
-        <div class="mt-8 pt-6 border-t border-slate-700/50">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-400 font-medium">Out-of-Stock Runway</span>
-            <span class="text-lg font-bold <%= card_styles[:text] %>">
-              <%= BurnRateService.new(product).formatted_runway %>
-            </span>
-          </div>
-          
-          <!-- Progress Bar Mock -->
-          <div class="w-full bg-slate-700/30 h-1.5 rounded-full mt-3 overflow-hidden">
-            <% progress = runway == Float::INFINITY ? 100 : [runway * 3.3, 100].min %>
-            <div class="h-full transition-all duration-1000 <%= card_styles[:bar] %>" style="width: <%= progress %>%"></div>
-          </div>
-        </div>
+  <!-- Alert Banner -->
+  <% if critical.any? %>
+    <div class="alert-banner">
+      <div class="alert-icon">
+        <svg width="16" height="16" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
       </div>
-    <% end %>
+      <div>
+        <div class="alert-title">Urgent: <%= critical.size %> product<%= critical.size > 1 ? 's' : '' %> running critically low</div>
+        <div class="alert-desc"><%= critical.map { |p| p[:product].name }.join(', ') %> — less than 7 days remaining</div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Products Table -->
+  <div class="table-container">
+    <div class="table-header">
+      <div class="table-title">All Products</div>
+      <div class="table-subtitle">Sorted by urgency (most critical first)</div>
+    </div>
+    
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 280px;">Product</th>
+          <th style="width: 100px;">Status</th>
+          <th class="align-right" style="width: 100px;">Stock</th>
+          <th class="align-right" style="width: 120px;">Daily Burn</th>
+          <th class="align-right" style="width: 120px;">Runway</th>
+          <th style="width: 140px;">Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% sorted_products.each do |data| %>
+          <%
+            product = data[:product]
+            runway = data[:runway]
+            
+            status_class = case runway
+            when 0..7 then "critical"
+            when 7..14 then "warning"
+            else "healthy"
+            end
+            
+            status_label = case runway
+            when 0..7 then "Critical"
+            when 7..14 then "Warning"
+            else "Healthy"
+            end
+            
+            progress = runway == Float::INFINITY ? 100 : [runway * 3.3, 100].min
+          %>
+          
+          <tr>
+            <td>
+              <div class="product-cell">
+                <div class="product-avatar"><%= product.name[0..1].upcase %></div>
+                <div>
+                  <div class="product-name"><%= product.name %></div>
+                  <div class="product-sku"><%= product.sku %></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="status-badge <%= status_class %>"><%= status_label %></span>
+            </td>
+            <td class="cell-value"><%= product.current_stock %></td>
+            <td class="cell-value"><%= number_with_precision(data[:burn_rate], precision: 1) %>/day</td>
+            <td class="cell-runway <%= status_class %>"><%= data[:formatted_runway] %></td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-fill <%= status_class %>" style="width: <%= progress %>%;"></div>
+              </div>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
   </div>
 </div>
