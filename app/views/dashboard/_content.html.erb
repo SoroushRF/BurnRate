@@ -1,0 +1,360 @@
+<%
+  # Pre-calculate all data
+  products_data = products.map do |product|
+    service = BurnRateService.new(product)
+    {
+      product: product,
+      runway: service.days_of_runway,
+      burn_rate: service.daily_burn_rate,
+      formatted_runway: service.formatted_runway
+    }
+  end
+  
+  critical = products_data.select { |p| p[:runway] <= 7 }
+  warning = products_data.select { |p| p[:runway] > 7 && p[:runway] <= 14 }
+  healthy = products_data.select { |p| p[:runway] > 14 }
+  sorted_products = products_data.sort_by { |p| p[:runway] == Float::INFINITY ? 999999 : p[:runway] }
+%>
+
+<style>
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+    margin-bottom: 8px;
+  }
+  
+  .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+  }
+  
+  .stat-value.critical { color: #f87171; }
+  .stat-value.warning { color: #fbbf24; }
+  .stat-value.healthy { color: #4ade80; }
+  
+  .alert-banner {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .alert-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .alert-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #f87171;
+  }
+  
+  .alert-desc {
+    font-size: 12px;
+    color: rgba(248, 113, 113, 0.7);
+    margin-top: 4px;
+  }
+  
+  .table-container {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  .table-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #27272a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .table-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+  
+  .table-subtitle {
+    font-size: 12px;
+    color: #71717a;
+    margin-top: 2px;
+  }
+  
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: #4ade80;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .data-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+    padding: 12px 24px;
+    border-bottom: 1px solid #27272a;
+    background: #1c1c1f;
+  }
+  
+  .data-table th.align-right { text-align: right; }
+  
+  .data-table td {
+    padding: 16px 24px;
+    border-bottom: 1px solid #27272a;
+    vertical-align: middle;
+  }
+  
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover { background: rgba(39, 39, 42, 0.5); }
+  
+  .product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .product-avatar {
+    width: 36px;
+    height: 36px;
+    background: #27272a;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a1a1aa;
+  }
+  
+  .product-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+  }
+  
+  .product-sku {
+    font-size: 12px;
+    color: #71717a;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  .status-badge {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .status-badge.critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+  
+  .status-badge.warning {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+  }
+  
+  .status-badge.healthy {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+  }
+  
+  .cell-value {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #e4e4e7;
+    text-align: right;
+  }
+  
+  .cell-runway {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+  }
+  
+  .cell-runway.critical { color: #f87171; }
+  .cell-runway.warning { color: #fbbf24; }
+  .cell-runway.healthy { color: #4ade80; }
+  
+  .progress-bar {
+    width: 120px;
+    height: 6px;
+    background: #27272a;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  
+  .progress-fill.critical { background: #f87171; }
+  .progress-fill.warning { background: #fbbf24; }
+  .progress-fill.healthy { background: #4ade80; }
+</style>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Total Products</div>
+    <div class="stat-value"><%= products_data.size %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label" style="color: #f87171;">Critical</div>
+    <div class="stat-value critical"><%= critical.size %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label" style="color: #fbbf24;">Warning</div>
+    <div class="stat-value warning"><%= warning.size %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label" style="color: #4ade80;">Healthy</div>
+    <div class="stat-value healthy"><%= healthy.size %></div>
+  </div>
+</div>
+
+<!-- Alert Banner -->
+<% if critical.any? %>
+  <div class="alert-banner">
+    <div class="alert-icon">
+      <svg width="16" height="16" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+    </div>
+    <div>
+      <div class="alert-title">Urgent: <%= critical.size %> product<%= critical.size > 1 ? 's' : '' %> running critically low</div>
+      <div class="alert-desc"><%= critical.map { |p| p[:product].name }.join(', ') %> — less than 7 days remaining</div>
+    </div>
+  </div>
+<% end %>
+
+<!-- Products Table -->
+<div class="table-container">
+  <div class="table-header">
+    <div>
+      <div class="table-title">All Products</div>
+      <div class="table-subtitle">Sorted by urgency (most critical first)</div>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span>Live Updates</span>
+    </div>
+  </div>
+  
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 280px;">Product</th>
+        <th style="width: 100px;">Status</th>
+        <th class="align-right" style="width: 100px;">Stock</th>
+        <th class="align-right" style="width: 120px;">Daily Burn</th>
+        <th class="align-right" style="width: 120px;">Runway</th>
+        <th style="width: 140px;">Progress</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% sorted_products.each do |data| %>
+        <%
+          product = data[:product]
+          runway = data[:runway]
+          
+          status_class = case runway
+          when 0..7 then "critical"
+          when 7..14 then "warning"
+          else "healthy"
+          end
+          
+          status_label = case runway
+          when 0..7 then "Critical"
+          when 7..14 then "Warning"
+          else "Healthy"
+          end
+          
+          progress = runway == Float::INFINITY ? 100 : [runway * 3.3, 100].min
+        %>
+        
+        <tr>
+          <td>
+            <div class="product-cell">
+              <div class="product-avatar"><%= product.name[0..1].upcase %></div>
+              <div>
+                <div class="product-name"><%= product.name %></div>
+                <div class="product-sku"><%= product.sku %></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="status-badge <%= status_class %>"><%= status_label %></span>
+          </td>
+          <td class="cell-value"><%= product.current_stock %></td>
+          <td class="cell-value"><%= number_with_precision(data[:burn_rate], precision: 1) %>/day</td>
+          <td class="cell-runway <%= status_class %>"><%= data[:formatted_runway] %></td>
+          <td>
+            <div class="progress-bar">
+              <div class="progress-fill <%= status_class %>" style="width: <%= progress %>%;"></div>
+            </div>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

@@ -3,20 +3,16 @@ class CalculateBurnRateJob < ApplicationJob
 
   def perform(product_id)
     product = Product.find(product_id)
-    service = BurnRateService.new(product)
     
-    # Recalculate and broadcast to Turbo Streams
-    # Using the formatted_runway for the UI update
-    ActionCable.server.broadcast(
-      "product_#{product.id}_runway",
-      {
-        runway: service.formatted_runway,
-        daily_burn_rate: service.daily_burn_rate
-      }
+    # Trigger dashboard refresh via Turbo Streams
+    # This broadcasts the updated content to all connected clients
+    Turbo::StreamsChannel.broadcast_replace_to(
+      "dashboard",
+      target: "dashboard-content",
+      partial: "dashboard/content",
+      locals: { products: Product.all }
     )
     
-    # Also broadcast for the "Urgency" dashboard update
-    # This will be handled by Turbo Stream in Phase 5
-    # For now, we leave the infrastructure ready
+    Rails.logger.info "[BurnRate] Updated dashboard for product ##{product_id}"
   end
 end
